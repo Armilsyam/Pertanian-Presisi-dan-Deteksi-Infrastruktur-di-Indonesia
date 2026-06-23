@@ -1,0 +1,35 @@
+name: CI CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install deps
+        run: pip install -r requirements.txt
+      - name: Run lint
+        run: pip install flake8 && flake8 .
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t ${{ secrets.REGISTRY }}/ml-inference:${{ github.sha }} .
+      - name: Push image
+        env:
+          REGISTRY: ${{ secrets.REGISTRY }}
+          USERNAME: ${{ secrets.REGISTRY_USER }}
+          PASSWORD: ${{ secrets.REGISTRY_PASS }}
+        run: |
+          echo $PASSWORD | docker login $REGISTRY -u $USERNAME --password-stdin
+          docker push $REGISTRY/ml-inference:${{ github.sha }}
